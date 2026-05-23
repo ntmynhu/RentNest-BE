@@ -24,22 +24,12 @@ export class AuthService {
         fullName: dto.fullName,
         phone: dto.phone,
         role: UserRole.TENANT,
-        status: UserStatus.INACTIVE,
+        status: UserStatus.ACTIVE,       // active ngay, không cần verify
+        emailVerified: true,             // tự động verify
       },
     })
 
-    const verifyToken = signEmailVerifyToken(user.id)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-
-    await prisma.emailVerification.create({
-      data: { userId: user.id, token: verifyToken, expiresAt },
-    })
-
-    const verifyLink = `${env.FRONTEND_URL}/verify-email?token=${verifyToken}`
-    emailService.sendVerificationEmail(user.email, user.fullName, verifyLink)
-      .catch(err => console.warn('[Email] sendVerificationEmail failed:', err.message))
-
-    return { message: 'Registration successful. Please check your email to verify your account.' }
+    return { message: 'Đăng ký thành công! Bạn có thể đăng nhập ngay.' }
   }
 
   // Verify email
@@ -77,7 +67,10 @@ export class AuthService {
     if (!user) throw new BadRequestError('Invalid email or password')
     if (user.deletedAt) throw new BadRequestError('Account not found')
     if (user.status === UserStatus.BANNED) throw new BadRequestError('Your account has been banned')
-    if (user.status === UserStatus.INACTIVE) throw new BadRequestError('Please verify your email first')
+    // Tự động kích hoạt tài khoản nếu chưa verify (bỏ bắt buộc verify email)
+    if (user.status === UserStatus.INACTIVE) {
+      await prisma.user.update({ where: { id: user.id }, data: { status: UserStatus.ACTIVE, emailVerified: true } })
+    }
 
     const isValid = await compareHash(password, user.passwordHash)
     if (!isValid) throw new BadRequestError('Invalid email or password')
