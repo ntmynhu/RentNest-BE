@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "rimraf ./dist && tsc",
+    "build": "rimraf ./dist && tsc && tsc-alias",
     "start": "npx prisma migrate deploy && node dist/index.js",
     "db:generate": "npx prisma generate",
     "db:migrate": "npx prisma migrate dev",
@@ -64,6 +64,7 @@
     "nodemon": "^3.1.7",
     "prisma": "^5.22.0",
     "rimraf": "^6.0.1",
+    "tsc-alias": "^1.8.17",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
