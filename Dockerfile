@@ -2,13 +2,21 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Cài tất cả dependencies (kể cả devDeps để build TS)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
+# Copy source code
 COPY prisma ./prisma
-RUN npx prisma generate
+COPY src ./src
+COPY tsconfig.json ./
 
-COPY dist ./dist
+# Generate Prisma client + build TypeScript → tạo ra /dist
+RUN npx prisma generate
+RUN npm run build
+
+# Xóa devDependencies sau khi build xong
+RUN npm prune --production
 
 EXPOSE 3000
 
