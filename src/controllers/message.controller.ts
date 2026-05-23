@@ -8,7 +8,7 @@ class MessageController {
   sendToLandlord = async (req: Request, res: Response) => {
     const result = await messageService.sendMessageToLandlord(
       req.user!.id,
-      parseInt(req.params.landlordId),
+      parseInt(req.params.landlordId as string),
       req.body
     )
     return new CreatedResponse({ message: 'Message sent', metaData: result }).send(res)
@@ -18,7 +18,7 @@ class MessageController {
   sendToTenant = async (req: Request, res: Response) => {
     const result = await messageService.sendMessageToTenant(
       req.user!.id,
-      parseInt(req.params.tenantId),
+      parseInt(req.params.tenantId as string),
       req.body
     )
     return new CreatedResponse({ message: 'Message sent', metaData: result }).send(res)
@@ -30,7 +30,7 @@ class MessageController {
   }
 
   getMessages = async (req: Request, res: Response) => {
-    const messages = await messageService.getMessages(req.user!.id, parseInt(req.params.conversationId))
+    const messages = await messageService.getMessages(req.user!.id, parseInt(req.params.conversationId as string))
     return new SuccessResponse({ message: 'Messages retrieved', metaData: messages }).send(res)
   }
 }

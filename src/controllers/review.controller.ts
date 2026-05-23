@@ -4,12 +4,12 @@ import { SuccessResponse, CreatedResponse } from '~/core/success.response'
 
 class ReviewController {
   create = async (req: Request, res: Response) => {
-    const review = await reviewService.createReview(req.user!.id, parseInt(req.params.listingId), req.body)
+    const review = await reviewService.createReview(req.user!.id, parseInt(req.params.listingId as string), req.body)
     return new CreatedResponse({ message: 'Review submitted', metaData: review }).send(res)
   }
 
   getByListing = async (req: Request, res: Response) => {
-    const reviews = await reviewService.getListingReviews(parseInt(req.params.listingId))
+    const reviews = await reviewService.getListingReviews(parseInt(req.params.listingId as string))
     return new SuccessResponse({ message: 'Reviews retrieved', metaData: reviews }).send(res)
   }
 }

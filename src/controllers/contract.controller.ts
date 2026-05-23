@@ -14,12 +14,12 @@ class ContractController {
   }
 
   getById = async (req: Request, res: Response) => {
-    const contract = await contractService.getContractById(req.user!.id, parseInt(req.params.id))
+    const contract = await contractService.getContractById(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Contract retrieved', metaData: contract }).send(res)
   }
 
   update = async (req: Request, res: Response) => {
-    const contract = await contractService.updateContract(req.user!.id, parseInt(req.params.id), req.body)
+    const contract = await contractService.updateContract(req.user!.id, parseInt(req.params.id as string), req.body)
     return new SuccessResponse({ message: 'Contract updated', metaData: contract }).send(res)
   }
 
@@ -29,12 +29,12 @@ class ContractController {
   }
 
   activate = async (req: Request, res: Response) => {
-    const contract = await contractService.activateContract(req.user!.id, parseInt(req.params.id))
+    const contract = await contractService.activateContract(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Contract activated', metaData: contract }).send(res)
   }
 
   archive = async (req: Request, res: Response) => {
-    const contract = await contractService.archiveContract(req.user!.id, parseInt(req.params.id))
+    const contract = await contractService.archiveContract(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Contract archived', metaData: contract }).send(res)
   }
 }

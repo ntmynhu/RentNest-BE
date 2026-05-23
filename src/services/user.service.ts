@@ -83,7 +83,7 @@ export class UserService {
         role: true, status: true, emailVerified: true, avatar: true,
         createdAt: true, lastLogin: true,
         warnings: { orderBy: { issuedAt: 'desc' } },
-        _count: { select: { listings: true, reviews: true } },
+        _count: { select: { listings: true } },
       },
     })
     if (!user) throw new NotFoundRequestError('User not found')

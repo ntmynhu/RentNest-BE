@@ -15,17 +15,17 @@ class TenantController {
   }
 
   getById = async (req: Request, res: Response) => {
-    const tenant = await tenantService.getTenantById(req.user!.id, parseInt(req.params.id))
+    const tenant = await tenantService.getTenantById(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Tenant retrieved', metaData: tenant }).send(res)
   }
 
   update = async (req: Request, res: Response) => {
-    const tenant = await tenantService.updateTenant(req.user!.id, parseInt(req.params.id), req.body)
+    const tenant = await tenantService.updateTenant(req.user!.id, parseInt(req.params.id as string), req.body)
     return new SuccessResponse({ message: 'Tenant updated', metaData: tenant }).send(res)
   }
 
   remove = async (req: Request, res: Response) => {
-    await tenantService.removeTenant(req.user!.id, parseInt(req.params.id))
+    await tenantService.removeTenant(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Tenant removed' }).send(res)
   }
 }

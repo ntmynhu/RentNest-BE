@@ -16,7 +16,7 @@ class PaymentController {
   }
 
   markAsPaid = async (req: Request, res: Response) => {
-    const payment = await paymentService.markAsPaid(req.user!.id, req.user!.role, parseInt(req.params.id), req.body)
+    const payment = await paymentService.markAsPaid(req.user!.id, req.user!.role, parseInt(req.params.id as string), req.body)
     return new SuccessResponse({ message: 'Payment marked as paid', metaData: payment }).send(res)
   }
 }

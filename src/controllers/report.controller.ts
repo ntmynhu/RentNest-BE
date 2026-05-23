@@ -15,7 +15,7 @@ class ReportController {
 
   resolve = async (req: Request, res: Response) => {
     const { status } = req.body
-    const report = await reportService.resolveReport(req.user!.id, parseInt(req.params.id), status)
+    const report = await reportService.resolveReport(req.user!.id, parseInt(req.params.id as string), status)
     return new SuccessResponse({ message: 'Report resolved', metaData: report }).send(res)
   }
 }

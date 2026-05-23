@@ -34,19 +34,19 @@ class ListingController {
 
   // GET /api/listings/:id
   getListingById = async (req: Request, res: Response) => {
-    const listing = await listingService.getListingById(parseInt(req.params.id), req.user?.id)
+    const listing = await listingService.getListingById(parseInt(req.params.id as string), req.user?.id)
     return new SuccessResponse({ message: 'Listing retrieved', metaData: listing }).send(res)
   }
 
   // PUT /api/listings/:id
   updateListing = async (req: Request, res: Response) => {
-    const listing = await listingService.updateListing(req.user!.id, parseInt(req.params.id), req.body)
+    const listing = await listingService.updateListing(req.user!.id, parseInt(req.params.id as string), req.body)
     return new SuccessResponse({ message: 'Listing updated', metaData: listing }).send(res)
   }
 
   // DELETE /api/listings/:id
   deleteListing = async (req: Request, res: Response) => {
-    await listingService.deleteListing(req.user!.id, parseInt(req.params.id))
+    await listingService.deleteListing(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Listing deleted' }).send(res)
   }
 
@@ -60,13 +60,13 @@ class ListingController {
   }
 
   approveListing = async (req: Request, res: Response) => {
-    const listing = await listingService.approveListing(req.user!.id, parseInt(req.params.id))
+    const listing = await listingService.approveListing(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Listing approved', metaData: listing }).send(res)
   }
 
   rejectListing = async (req: Request, res: Response) => {
     const { rejectionReason } = req.body
-    const listing = await listingService.rejectListing(req.user!.id, parseInt(req.params.id), rejectionReason)
+    const listing = await listingService.rejectListing(req.user!.id, parseInt(req.params.id as string), rejectionReason)
     return new SuccessResponse({ message: 'Listing rejected', metaData: listing }).send(res)
   }
 }
