@@ -10,7 +10,7 @@ export class PaymentService {
 
     if (role === UserRole.TENANT) {
       const tenant = await prisma.tenant.findFirst({ where: { userId } })
-      if (!tenant) return []
+      if (!tenant) return { payments: [], summary: { totalPaid: 0, totalPending: 0, totalOverdue: 0 } }
       where.tenantId = tenant.id
     } else if (role === UserRole.LANDLORD) {
       where.landlordId = userId
