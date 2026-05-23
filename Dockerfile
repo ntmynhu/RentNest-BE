@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Prisma cần OpenSSL để chạy trên Alpine
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Cài tất cả dependencies (kể cả devDeps để build TS)
