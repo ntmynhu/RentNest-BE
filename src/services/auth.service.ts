@@ -23,13 +23,28 @@ export class AuthService {
         passwordHash,
         fullName: dto.fullName,
         phone: dto.phone,
-        role: UserRole.TENANT,
-        status: UserStatus.ACTIVE,       // active ngay, không cần verify
-        emailVerified: true,             // tự động verify
+        role: dto.role === 'LANDLORD' ? UserRole.LANDLORD : UserRole.TENANT,
+        status: UserStatus.ACTIVE,
+        emailVerified: true,
       },
     })
 
-    return { message: 'Đăng ký thành công! Bạn có thể đăng nhập ngay.' }
+    // Tự động đăng nhập sau khi đăng ký
+    const [accessToken, refreshToken] = await Promise.all([
+      signAccessToken(user.id),
+      signRefreshToken(user.id),
+    ])
+
+    await prisma.refreshToken.create({
+      data: { userId: user.id, token: refreshToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+    })
+
+    return {
+      message: 'Đăng ký thành công!',
+      user: unGetData({ fields: ['passwordHash', 'deletedAt'], object: user }),
+      accessToken,
+      refreshToken,
+    }
   }
 
   // Verify email
