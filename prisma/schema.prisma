@@ -1,0 +1,471 @@
+// RentNest - Prisma Schema
+// Stack: Express + TypeScript + Prisma + PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 1. USER MANAGEMENT
+// ============================================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  fullName      String    @map("full_name")
+  phone         String?   @unique
+  role          UserRole  @default(TENANT)
+  status        UserStatus @default(INACTIVE)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  avatar        String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+  lastLogin     DateTime? @map("last_login")
+
+  // Relations
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+  listings           Listing[]           @relation("LandlordListings")
+  tenants            Tenant[]            @relation("LandlordTenants")
+  tenantProfile      Tenant?             @relation("TenantUser")
+  contracts          Contract[]          @relation("LandlordContracts")
+  payments           Payment[]           @relation("TenantPayments")
+  sentMessages       Message[]           @relation("SentMessages")
+  conversationsAsTenant   Conversation[] @relation("ConversationTenant")
+  conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
+  reports            Report[]            @relation("ReporterReports")
+  warnings           Warning[]           @relation("WarnedUser")
+  issuedWarnings     Warning[]           @relation("AdminWarnings")
+  behaviors          UserBehavior[]
+  sessions           Session[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  GUEST
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum UserStatus {
+  INACTIVE
+  ACTIVE
+  BANNED
+}
+
+model EmailVerification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}
+
+model Session {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  token       String   @unique
+  loginTime   DateTime @default(now()) @map("login_time")
+  expiryTime  DateTime @map("expiry_time")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================================
+// 2. LISTINGS (Room Posts)
+// ============================================================
+
+model Listing {
+  id          Int           @id @default(autoincrement())
+  landlordId  Int           @map("landlord_id")
+  title       String
+  description String        @db.Text
+  price       Decimal       @db.Decimal(12, 2)
+  address     String
+  district    String?
+  city        String?
+  area        Decimal       @db.Decimal(8, 2)          // m²
+  roomType    RoomType      @map("room_type")
+  status      ListingStatus @default(PENDING_APPROVAL)
+  viewCount   Int           @default(0) @map("view_count")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+  approvedAt  DateTime?     @map("approved_at")
+  approvedBy  Int?          @map("approved_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  deletedAt   DateTime?     @map("deleted_at")
+
+  // Relations
+  landlord         User              @relation("LandlordListings", fields: [landlordId], references: [id])
+  images           ListingImage[]
+  amenities        ListingAmenity[]
+  tenants          Tenant[]
+  contracts        Contract[]
+  reviews          Review[]
+  conversations    Conversation[]
+  reports          Report[]          @relation("ListingReports")
+  behaviors        UserBehavior[]
+
+  @@index([status])
+  @@index([landlordId])
+  @@index([city, district])
+  @@index([price])
+  @@map("listings")
+}
+
+enum RoomType {
+  SINGLE_ROOM
+  SHARED_ROOM
+  APARTMENT
+  MINI_APARTMENT
+  DORMITORY
+}
+
+enum ListingStatus {
+  PENDING_APPROVAL
+  PUBLISHED
+  REJECTED
+  UNAVAILABLE
+  ARCHIVED
+}
+
+model ListingImage {
+  id        Int      @id @default(autoincrement())
+  listingId Int      @map("listing_id")
+  url       String
+  publicId  String?  @map("public_id")  // Cloudinary public_id
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_images")
+}
+
+model Amenity {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  icon String?
+
+  listings ListingAmenity[]
+
+  @@map("amenities")
+}
+
+model ListingAmenity {
+  listingId Int @map("listing_id")
+  amenityId Int @map("amenity_id")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity Amenity @relation(fields: [amenityId], references: [id])
+
+  @@id([listingId, amenityId])
+  @@map("listing_amenities")
+}
+
+// ============================================================
+// 3. TENANT MANAGEMENT (UC8)
+// ============================================================
+
+model Tenant {
+  id          Int          @id @default(autoincrement())
+  landlordId  Int          @map("landlord_id")
+  userId      Int?         @unique @map("user_id")  // link to User account if exists
+  listingId   Int          @map("listing_id")
+  name        String
+  email       String
+  phone       String
+  moveInDate  DateTime     @map("move_in_date")
+  moveOutDate DateTime?    @map("move_out_date")
+  status      TenantStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+
+  // Relations
+  landlord  User       @relation("LandlordTenants", fields: [landlordId], references: [id])
+  user      User?      @relation("TenantUser", fields: [userId], references: [id])
+  listing   Listing    @relation(fields: [listingId], references: [id])
+  contracts Contract[]
+  payments  Payment[]
+  reviews   Review[]
+
+  @@index([landlordId])
+  @@index([listingId])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  MOVED_OUT
+}
+
+// ============================================================
+// 4. CONTRACT MANAGEMENT (UC9)
+// ============================================================
+
+model Contract {
+  id             Int            @id @default(autoincrement())
+  landlordId     Int            @map("landlord_id")
+  tenantId       Int            @map("tenant_id")
+  listingId      Int            @map("listing_id")
+  startDate      DateTime       @map("start_date")
+  endDate        DateTime       @map("end_date")
+  rentAmount     Decimal        @db.Decimal(12, 2) @map("rent_amount")
+  depositAmount  Decimal        @db.Decimal(12, 2) @map("deposit_amount")
+  terms          String         @db.Text
+  status         ContractStatus @default(DRAFT)
+  pdfUrl         String?        @map("pdf_url")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  landlord User     @relation("LandlordContracts", fields: [landlordId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  listing  Listing  @relation(fields: [listingId], references: [id])
+  payments Payment[]
+
+  @@index([landlordId])
+  @@index([tenantId])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  EXPIRED
+  ARCHIVED
+}
+
+// ============================================================
+// 5. PAYMENT TRACKING (UC10)
+// ============================================================
+
+model Payment {
+  id         Int           @id @default(autoincrement())
+  contractId Int           @map("contract_id")
+  tenantId   Int           @map("tenant_id")
+  landlordId Int           @map("landlord_id")
+  amount     Decimal       @db.Decimal(12, 2)
+  dueDate    DateTime      @map("due_date")
+  paidDate   DateTime?     @map("paid_date")
+  status     PaymentStatus @default(PENDING)
+  note       String?
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  contract Contract @relation(fields: [contractId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  landlord User     @relation("TenantPayments", fields: [landlordId], references: [id])
+
+  @@index([tenantId])
+  @@index([landlordId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+// ============================================================
+// 6. REVIEW & RATING (UC11)
+// ============================================================
+
+model Review {
+  id         Int          @id @default(autoincrement())
+  tenantId   Int          @map("tenant_id")
+  listingId  Int          @map("listing_id")
+  rating     Int          // 1-5
+  text       String?      @db.Text
+  isVerified Boolean      @default(true) @map("is_verified")
+  status     ReviewStatus @default(PUBLISHED)
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@unique([tenantId, listingId])  // one review per tenant per listing
+  @@index([listingId])
+  @@map("reviews")
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  HIDDEN
+}
+
+// ============================================================
+// 7. MESSAGING (UC6, UC14)
+// ============================================================
+
+model Conversation {
+  id         Int                @id @default(autoincrement())
+  tenantId   Int                @map("tenant_id")
+  landlordId Int                @map("landlord_id")
+  listingId  Int?               @map("listing_id")
+  status     ConversationStatus @default(ACTIVE)
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  tenant   User     @relation("ConversationTenant", fields: [tenantId], references: [id])
+  landlord User     @relation("ConversationLandlord", fields: [landlordId], references: [id])
+  listing  Listing? @relation(fields: [listingId], references: [id])
+  messages Message[]
+
+  @@unique([tenantId, landlordId, listingId])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Message {
+  id             Int           @id @default(autoincrement())
+  conversationId Int           @map("conversation_id")
+  fromUserId     Int           @map("from_user_id")
+  content        String        @db.Text
+  isRead         Boolean       @default(false) @map("is_read")
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromUser     User         @relation("SentMessages", fields: [fromUserId], references: [id])
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+enum MessageStatus {
+  SENT
+  READ
+}
+
+// ============================================================
+// 8. REPORT (UC12)
+// ============================================================
+
+model Report {
+  id               Int          @id @default(autoincrement())
+  reporterId       Int          @map("reporter_id")
+  reportedItemType ReportType   @map("reported_item_type")
+  reportedItemId   Int          @map("reported_item_id")
+  reason           String
+  description      String?      @db.Text
+  contactEmail     String?      @map("contact_email")
+  contactPhone     String?      @map("contact_phone")
+  status           ReportStatus @default(PENDING)
+  resolvedBy       Int?         @map("resolved_by")
+  resolvedAt       DateTime?    @map("resolved_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  reporter User     @relation("ReporterReports", fields: [reporterId], references: [id])
+  listing  Listing? @relation("ListingReports", fields: [reportedItemId], references: [id], map: "report_listing_fk")
+
+  @@index([status])
+  @@map("reports")
+}
+
+enum ReportType {
+  LISTING
+  PROFILE
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// ============================================================
+// 9. ACCOUNT MODERATION (UC15)
+// ============================================================
+
+model Warning {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @map("user_id")
+  adminId  Int      @map("admin_id")
+  reason   String   @db.Text
+  issuedAt DateTime @default(now()) @map("issued_at")
+
+  user  User @relation("WarnedUser", fields: [userId], references: [id])
+  admin User @relation("AdminWarnings", fields: [adminId], references: [id])
+
+  @@map("warnings")
+}
+
+// ============================================================
+// 10. RECOMMENDATION ENGINE (UC5)
+// ============================================================
+
+model UserBehavior {
+  id            Int          @id @default(autoincrement())
+  userId        Int          @map("user_id")
+  listingId     Int          @map("listing_id")
+  behaviorType  BehaviorType @map("behavior_type")
+  searchKeyword String?      @map("search_keyword")
+  duration      Int?         // seconds spent viewing
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([listingId])
+  @@map("user_behaviors")
+}
+
+enum BehaviorType {
+  VIEW
+  SAVE
+  FAVORITE
+  SEARCH
+  CONTACT
+  BOOK
+}
