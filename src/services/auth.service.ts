@@ -35,10 +35,6 @@ export class AuthService {
       signRefreshToken(user.id),
     ])
 
-    await prisma.refreshToken.create({
-      data: { userId: user.id, token: refreshToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-    })
-
     return {
       message: 'Đăng ký thành công!',
       user: unGetData({ fields: ['passwordHash', 'deletedAt'], object: user }),
