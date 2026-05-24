@@ -55,17 +55,19 @@ export class MessageService {
     })
     if (!tenant) throw new NotFoundRequestError('Tenant not found')
 
-    // Verify landlord has this tenant
-    const tenantRecord = await prisma.tenant.findFirst({
-      where: { userId: tenantUserId, landlordId },
-    })
-    if (!tenantRecord) throw new ForbiddenRequestError('This user is not your tenant')
-
+    // Allow reply if a conversation already exists (tenant messaged first)
+    // OR if there's a formal tenant record under this landlord
     let conversation = await prisma.conversation.findFirst({
       where: { tenantId: tenantUserId, landlordId },
     })
 
     if (!conversation) {
+      // No prior conversation — require formal tenant relationship
+      const tenantRecord = await prisma.tenant.findFirst({
+        where: { userId: tenantUserId, landlordId },
+      })
+      if (!tenantRecord) throw new ForbiddenRequestError('This user is not your tenant')
+
       conversation = await prisma.conversation.create({
         data: { tenantId: tenantUserId, landlordId, status: 'ACTIVE' },
       })
