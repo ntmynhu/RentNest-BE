@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { paymentService } from '~/services/payment.service'
 import { SuccessResponse, CreatedResponse } from '~/core/success.response'
+import { getIo } from '~/config/socket'
 
 class PaymentController {
   getAll = async (req: Request, res: Response) => {
@@ -16,7 +17,24 @@ class PaymentController {
   }
 
   markAsPaid = async (req: Request, res: Response) => {
-    const payment = await paymentService.markAsPaid(req.user!.id, req.user!.role, parseInt(req.params.id as string), req.body)
+    const payment = await paymentService.markAsPaid(
+      req.user!.id,
+      req.user!.role,
+      parseInt(req.params.id as string),
+      req.body,
+    )
+
+    // ASR-21: Push real-time notification to tenant when payment is marked paid
+    const tenantUserId = (payment as any).tenant?.userId
+    if (tenantUserId) {
+      getIo()?.to(`user_${tenantUserId}`).emit('payment_updated', {
+        paymentId: payment.id,
+        status: 'PAID',
+        amount: payment.amount,
+        note: payment.note,
+      })
+    }
+
     return new SuccessResponse({ message: 'Payment marked as paid', metaData: payment }).send(res)
   }
 }

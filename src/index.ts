@@ -4,6 +4,7 @@ import app from './app'
 import { env } from './config/env'
 import { prisma } from './config/database'
 import { cronService } from './services/cron.service'
+import { setIo } from './config/socket'
 
 const httpServer = createServer(app)
 
@@ -21,12 +22,19 @@ const io = new SocketServer(httpServer, {
   },
 })
 
+// Share io with the rest of the app (payment notifications, etc.)
+setIo(io)
+
 // Track online users: userId → socketId
 const onlineUsers = new Map<number, string>()
 
 io.on('connection', (socket) => {
   const userId = parseInt(socket.handshake.query.userId as string)
-  if (userId) onlineUsers.set(userId, socket.id)
+  if (userId) {
+    onlineUsers.set(userId, socket.id)
+    // ASR-21: Join user-specific room so we can push payment/contract notifications
+    socket.join(`user_${userId}`)
+  }
 
   socket.on('join_conversation', (conversationId: number) => {
     socket.join(`conversation_${conversationId}`)

@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator'
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator'
 
 export class RegisterDto {
   @IsNotEmpty({ message: 'Full name is required' })
@@ -10,6 +10,10 @@ export class RegisterDto {
   email!: string
 
   @IsNotEmpty({ message: 'Password is required' })
+  @MinLength(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' })
+  @Matches(/^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[@#$%^&+=!])(?=\S+$).{8,}$/, {
+    message: 'Mật khẩu phải chứa chữ cái, chữ số và ký tự đặc biệt (@#$%^&+=!)',
+  })
   @IsString()
   password!: string
 

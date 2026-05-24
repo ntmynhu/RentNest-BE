@@ -25,10 +25,21 @@ export class UserService {
     if (!user) throw new NotFoundRequestError('User not found')
     if (user.role === 'ADMIN') throw new BadRequestError('Cannot ban an admin account')
 
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: { status: 'BANNED' },
-    })
+    // Atomic: ban + audit log + archive listings
+    const [updated] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { status: 'BANNED' },
+      }),
+      // ASR-12: Audit log – ghi nhận lý do ban vào bảng warnings
+      prisma.warning.create({
+        data: {
+          userId,
+          adminId,
+          reason: `[BAN] ${reason}`,
+        },
+      }),
+    ])
 
     // Archive landlord's listings if banned
     if (user.role === 'LANDLORD') {

@@ -111,16 +111,6 @@ export class ContractService {
     if (contract.status !== 'DRAFT') throw new BadRequestError('Chỉ có thể kích hoạt hợp đồng ở trạng thái Nháp')
     if (!contract.tenantConfirmedAt) throw new BadRequestError('Người thuê chưa xác nhận hợp đồng')
 
-    // Kích hoạt hợp đồng
-    const activated = await prisma.contract.update({
-      where: { id: contractId },
-      data: { status: 'ACTIVE' },
-      include: {
-        tenant: { select: { id: true, name: true, email: true, phone: true } },
-        listing: { select: { id: true, title: true, address: true } },
-      },
-    })
-
     // Tự động sinh payment hàng tháng từ startDate đến endDate
     const start = new Date(contract.startDate)
     const end   = new Date(contract.endDate)
@@ -140,11 +130,23 @@ export class ContractService {
       cur.setMonth(cur.getMonth() + 1)
     }
 
-    if (payments.length > 0) {
-      await prisma.payment.createMany({ data: payments })
-    }
+    // ASR-20: Atomic – kích hoạt hợp đồng + sinh payments trong cùng 1 transaction
+    const [activated] = await prisma.$transaction([
+      prisma.contract.update({
+        where: { id: contractId },
+        data: { status: 'ACTIVE' },
+      }),
+      ...(payments.length > 0 ? [prisma.payment.createMany({ data: payments })] : []),
+    ])
 
-    return activated
+    // Re-fetch với include để trả về đầy đủ thông tin
+    return prisma.contract.findUniqueOrThrow({
+      where: { id: contractId },
+      include: {
+        tenant: { select: { id: true, name: true, email: true, phone: true } },
+        listing: { select: { id: true, title: true, address: true } },
+      },
+    })
   }
 
   // UC9: Archive contract

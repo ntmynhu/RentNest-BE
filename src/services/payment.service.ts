@@ -85,9 +85,11 @@ export class PaymentService {
     if (!payment) throw new NotFoundRequestError('Payment not found')
     if (payment.status === 'PAID') throw new BadRequestError('Payment is already marked as paid')
 
+    // Include tenant.userId so controller can emit socket notification (ASR-21)
     return prisma.payment.update({
       where: { id: paymentId },
       data: { status: 'PAID', paidDate: new Date(dto.paidDate) },
+      include: { tenant: { select: { userId: true } } },
     })
   }
 

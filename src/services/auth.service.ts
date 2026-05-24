@@ -122,7 +122,7 @@ export class AuthService {
     }
 
     const resetToken = signResetPasswordToken(user.id)
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes (ASR-7)
 
     await prisma.passwordReset.create({
       data: { userId: user.id, token: resetToken, expiresAt },
