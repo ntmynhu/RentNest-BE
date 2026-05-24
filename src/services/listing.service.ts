@@ -150,21 +150,33 @@ export class ListingService {
   }
 
   // Update listing
-  async updateListing(landlordId: number, listingId: number, data: Partial<CreateListingDto>) {
+  async updateListing(landlordId: number, listingId: number, data: Partial<CreateListingDto>, imageUrls?: string[]) {
     const listing = await prisma.listing.findFirst({
       where: { id: listingId, landlordId, deletedAt: null },
     })
     if (!listing) throw new NotFoundRequestError('Listing not found')
 
-    if (listing.status === ListingStatus.PUBLISHED) {
-      // Re-submit for approval on update
-      return prisma.listing.update({
-        where: { id: listingId },
-        data: { ...data, status: ListingStatus.PENDING_APPROVAL } as any,
-      })
+    const needsReApproval = [ListingStatus.PUBLISHED, ListingStatus.REJECTED]
+    const statusReset = needsReApproval.includes(listing.status as ListingStatus)
+      ? { status: ListingStatus.PENDING_APPROVAL, rejectionReason: null }
+      : {}
+
+    // Handle image replacement if new imageUrls provided
+    if (imageUrls !== undefined) {
+      await prisma.listingImage.deleteMany({ where: { listingId } })
+      if (imageUrls.length > 0) {
+        await prisma.listingImage.createMany({
+          data: imageUrls.map((url, i) => ({ listingId, url, isPrimary: i === 0 })),
+        })
+      }
     }
 
-    return prisma.listing.update({ where: { id: listingId }, data: data as any })
+    const { imageUrls: _removed, ...fields } = data as any
+    return prisma.listing.update({
+      where: { id: listingId },
+      data: { ...fields, ...statusReset },
+      include: { images: { where: { isPrimary: true }, take: 1 } },
+    })
   }
 
   // Soft delete listing

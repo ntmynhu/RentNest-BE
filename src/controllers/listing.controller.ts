@@ -40,7 +40,13 @@ class ListingController {
 
   // PUT /api/listings/:id
   updateListing = async (req: Request, res: Response) => {
-    const listing = await listingService.updateListing(req.user!.id, parseInt(req.params.id as string), req.body)
+    const { imageUrls, ...rest } = req.body
+    const listing = await listingService.updateListing(
+      req.user!.id,
+      parseInt(req.params.id as string),
+      rest,
+      imageUrls,
+    )
     return new SuccessResponse({ message: 'Listing updated', metaData: listing }).send(res)
   }
 
