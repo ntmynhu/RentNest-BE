@@ -9,9 +9,11 @@ import messageRoute  from './message.route'
 import reportRoute   from './report.route'
 import userRoute     from './user.route'
 import uploadRoute   from './upload.route'
+import amenityRoute  from './amenity.route'
 
 const router = Router()
 
+router.use('/amenities', amenityRoute)
 router.use('/auth',      authRoute)
 router.use('/listings',  listingRoute)
 router.use('/tenants',   tenantRoute)

@@ -171,11 +171,24 @@ export class ListingService {
       }
     }
 
-    const { imageUrls: _removed, ...fields } = data as any
+    // Handle amenity replacement if amenityIds provided
+    const { imageUrls: _img, amenityIds, ...fields } = data as any
+    if (amenityIds !== undefined) {
+      await prisma.listingAmenity.deleteMany({ where: { listingId } })
+      if (amenityIds.length > 0) {
+        await prisma.listingAmenity.createMany({
+          data: amenityIds.map((amenityId: number) => ({ listingId, amenityId })),
+        })
+      }
+    }
+
     return prisma.listing.update({
       where: { id: listingId },
       data: { ...fields, ...statusReset },
-      include: { images: { where: { isPrimary: true }, take: 1 } },
+      include: {
+        images: { where: { isPrimary: true }, take: 1 },
+        amenities: { include: { amenity: true } },
+      },
     })
   }
 
