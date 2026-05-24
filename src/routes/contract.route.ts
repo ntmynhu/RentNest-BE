@@ -15,6 +15,13 @@ router.get('/mine',
   wrapRequestHandler(contractController.getMine)
 )
 
+// Tenant: confirm contract
+router.patch('/:id/confirm',
+  authenticate,
+  requireRole(UserRole.TENANT),
+  wrapRequestHandler(contractController.confirm)
+)
+
 // All routes below require LANDLORD role
 router.use(authenticate, requireRole(UserRole.LANDLORD))
 

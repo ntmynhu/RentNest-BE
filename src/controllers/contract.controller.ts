@@ -28,6 +28,11 @@ class ContractController {
     return new SuccessResponse({ message: 'Contracts retrieved', metaData: contracts }).send(res)
   }
 
+  confirm = async (req: Request, res: Response) => {
+    const contract = await contractService.confirmContract(req.user!.id, parseInt(req.params.id as string))
+    return new SuccessResponse({ message: 'Contract confirmed', metaData: contract }).send(res)
+  }
+
   activate = async (req: Request, res: Response) => {
     const contract = await contractService.activateContract(req.user!.id, parseInt(req.params.id as string))
     return new SuccessResponse({ message: 'Contract activated', metaData: contract }).send(res)

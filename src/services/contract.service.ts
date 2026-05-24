@@ -77,6 +77,31 @@ export class ContractService {
     return prisma.contract.update({ where: { id: contractId }, data: updateData })
   }
 
+  // UC9: Tenant confirms contract (DRAFT → tenantConfirmedAt set)
+  async confirmContract(tenantUserId: number, contractId: number) {
+    // Find the tenant record linked to this user (by userId or email)
+    const user = await prisma.user.findUnique({ where: { id: tenantUserId } })
+    if (!user) throw new NotFoundRequestError('User not found')
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { deletedAt: null, OR: [{ userId: tenantUserId }, { email: user.email }] },
+    })
+    if (!tenant) throw new NotFoundRequestError('Tenant profile not found')
+
+    const contract = await prisma.contract.findFirst({
+      where: { id: contractId, tenantId: tenant.id },
+    })
+    if (!contract) throw new NotFoundRequestError('Contract not found')
+    if (contract.status !== 'DRAFT') throw new BadRequestError('Chỉ có thể xác nhận hợp đồng ở trạng thái Nháp')
+    if (contract.tenantConfirmedAt) throw new BadRequestError('Hợp đồng đã được xác nhận rồi')
+
+    return prisma.contract.update({
+      where: { id: contractId },
+      data: { tenantConfirmedAt: new Date() },
+      include: { listing: { select: { id: true, title: true, address: true } } },
+    })
+  }
+
   // Activate contract: DRAFT → ACTIVE + tự sinh payments hàng tháng
   async activateContract(landlordId: number, contractId: number) {
     const contract = await prisma.contract.findFirst({
@@ -84,6 +109,7 @@ export class ContractService {
     })
     if (!contract) throw new NotFoundRequestError('Contract not found')
     if (contract.status !== 'DRAFT') throw new BadRequestError('Chỉ có thể kích hoạt hợp đồng ở trạng thái Nháp')
+    if (!contract.tenantConfirmedAt) throw new BadRequestError('Người thuê chưa xác nhận hợp đồng')
 
     // Kích hoạt hợp đồng
     const activated = await prisma.contract.update({
@@ -147,10 +173,20 @@ export class ContractService {
     })
   }
 
-  // Tenant: view own contracts
+  // Tenant: view own contracts (lookup by userId OR email to handle manually-added tenants)
   async getTenantContracts(userId: number) {
-    const tenant = await prisma.tenant.findFirst({ where: { userId, deletedAt: null } })
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return []
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { deletedAt: null, OR: [{ userId }, { email: user.email }] },
+    })
     if (!tenant) return []
+
+    // Auto-link userId if not set
+    if (!tenant.userId) {
+      await prisma.tenant.update({ where: { id: tenant.id }, data: { userId } }).catch(() => {})
+    }
 
     return prisma.contract.findMany({
       where: { tenantId: tenant.id },
